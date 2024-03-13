@@ -1,0 +1,1482 @@
+Program.Sub.ScreenSU.Start
+Gui.frmDash..Create
+Gui.frmDash..Caption("Sales Order - PO Dashboard")
+Gui.frmDash..Size(20805,11325)
+Gui.frmDash..MinX(0)
+Gui.frmDash..MinY(0)
+Gui.frmDash..Position(0,0)
+Gui.frmDash..BackColor(-2147483633)
+Gui.frmDash..MousePointer(0)
+Gui.frmDash..Event(UnLoad,frmDash_UnLoad)
+Gui.frmDash.cmdProcess.Create(Button)
+Gui.frmDash.cmdProcess.Size(1065,420)
+Gui.frmDash.cmdProcess.Position(18780,120)
+Gui.frmDash.cmdProcess.Caption("Create WO")
+Gui.frmDash.cmdProcess.Event(Click,cmdProcess_Click)
+Gui.frmDash.lbl1.Create(Label,"Import Folder",True,1245,315,0,150,165,True,0,"Arial",8,-2147483633,0)
+Gui.frmDash.txtFolder.Create(TextBox,"",True,4230,300,0,1290,135,True,0,"Arial",8,-2147483643,1)
+Gui.frmDash.txtFolder.Locked(True)
+Gui.frmDash.cmdBrowse.Create(Button)
+Gui.frmDash.cmdBrowse.Size(450,360)
+Gui.frmDash.cmdBrowse.Position(5580,105)
+Gui.frmDash.cmdBrowse.Caption("^")
+Gui.frmDash.cmdBrowse.Event(Click,cmdBrowse_Click)
+Gui.frmDash.GsGrid.Create(GsGridControl)
+Gui.frmDash.GsGrid.Size(20265,9990)
+Gui.frmDash.GsGrid.Position(150,660)
+Gui.frmDash.GsGrid.Event(RowCellClick,GsGrid_RowCellClick)
+Gui.frmDash.cmdImport.Create(Button)
+Gui.frmDash.cmdImport.Size(855,375)
+Gui.frmDash.cmdImport.Position(6255,105)
+Gui.frmDash.cmdImport.Caption("Import")
+Gui.frmDash.cmdImport.Event(Click,cmdImport_Click)
+Gui.frmDash.cmdSelectAll.Create(Button)
+Gui.frmDash.cmdSelectAll.Size(1155,405)
+Gui.frmDash.cmdSelectAll.Position(17580,135)
+Gui.frmDash.cmdSelectAll.Caption("Select All")
+Gui.frmDash.cmdSelectAll.Event(Click,cmdSelectAll_Click)
+Gui.frmDash.lbl3.Create(Label,"New Import",True,1065,255,0,9000,300,True,0,"Arial",8,-2147483633,0)
+Gui.frmDash.lbl5.Create(Label,"WO Exist",True,1185,255,0,10515,300,True,0,"Arial",8,-2147483633,0)
+Gui.frmDash.txt1.Create(TextBox,"",True,330,300,0,10080,210,False,0,"Arial",8,13353215,1)
+Gui.frmDash.txt2.Create(TextBox,"",True,330,300,0,8580,210,False,0,"Arial",8,65535,1)
+Gui.frmDash.txt3.Create(TextBox,"",True,330,300,0,11490,210,False,0,"Arial",8,255,1)
+Gui.frmDash.lbl4.Create(Label,"No Match",True,915,255,0,11940,300,True,0,"Arial",8,-2147483633,0)
+Gui.frmDash.txt4.Create(TextBox,"",True,330,300,0,12960,225,False,0,"Arial",8,42495,1)
+Gui.frmDash.lbl6.Create(Label,"Pack list already exist",True,1845,255,0,13380,300,True,0,"Arial",8,-2147483633,0)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+'originally coded by Ranjit Nair
+'for Voestalpine, see gss quote 10406
+'Business Case: Customer is having to manually create, enter data for Sales, Purchasing and Work orders routinely and this could be automated. 
+'Solution: Dashboard that will centralize collection of data, creation of POs and Work orders.
+
+
+
+V.Local.sError.Declare(String)
+V.Local.sRet.Declare(String)
+
+F.ODBC.Connection!conx.OpenCompanyConnection(300)
+
+'-\\2173assqlsvr\dts\fromdts\ 
+'f.Intrinsic.String.Build("{0}\fromDTS\",v.Caller.GasDir,V.Local.sRet)
+f.Intrinsic.String.Build("\\2173assqlsvr\dts\fromDTS\","",V.Local.sRet)
+gui.frmDash.txtFolder.Text(v.Local.sRet)
+F.Intrinsic.Control.CallSub(createmenu)
+gui.frmDash..Show 
+Function.Intrinsic.UI.InvokeWaitDialog("Loading Data...")
+
+f.Intrinsic.Control.CallSub(load_grid)
+
+
+gui.frmDash.GsGrid.Anchor(7)
+gui.frmDash..WindowState(2)
+
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.frmDash_UnLoad.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.If(v.DataTable.DTLines.Exists,=,True)
+	F.Data.DataTable.Close("DTLines")
+f.Intrinsic.Control.EndIf 
+
+F.Intrinsic.Control.If(v.DataTable.DTPO.Exists,=,True)
+	F.Data.DataTable.Close("DTPO")
+f.Intrinsic.Control.EndIf 
+
+F.ODBC.Connection!conx.Close
+f.Intrinsic.Control.End 
+
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.frmDash_UnLoad.End
+
+Program.Sub.cmdProcess_Click.Start
+F.Intrinsic.Control.SetErrorHandler("frmDash_UnLoad_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.i.Declare 
+V.Local.sData.Declare 
+V.Local.sRet.Declare 
+V.Local.sPart_F.Declare 
+V.Local.sRev_F.Declare 
+V.Local.sLoc.Declare 
+V.Local.sLine.Declare 
+V.Local.fQty.Declare 
+V.Local.sDueDT.Declare 
+V.Local.sfile.Declare 
+v.Local.sColumn.Declare 
+v.Local.sPgm.Declare 
+V.Local.bExists.Declare 
+v.Local.sWo.Declare
+v.Local.iPID.Declare 
+
+
+
+f.Intrinsic.Control.BlockEvents 
+
+	f.Data.DataView.Create("DTLines","DVWO",22,"CREATEWO = 1","")
+'	f.Data.DataView.Create("DTLines","DVWO",22,"","")
+
+
+
+	f.Intrinsic.UI.InvokeWaitDialog("Generating WO")
+	f.Intrinsic.Control.For(v.Local.i,0,v.Dataview.DTLines!DVWO.rowcount--,1)
+
+'		f.Intrinsic.UI.ChangeWaitStatus("Generating WO",v.Local.i,1,v.DataTable.DTWO.rowcount)
+
+
+		V.Local.sRet.Set(v.Dataview.DTLines!DVWO(v.Local.i).OrdParts.fieldvaltrim)
+
+		f.Intrinsic.String.Mid(V.Local.sRet,1,17,V.Local.sPart_F)
+		f.Intrinsic.String.Mid(V.Local.sRet,18,20,V.Local.sRev_F)
+
+		V.Local.sLoc.Set("20")
+
+		'Parts DATE_ITEM_PROM,Qty_Ordered
+
+		f.Intrinsic.String.Format(v.Dataview.DTLines!DVWO(v.Local.i).DATE_ITEM_PROM.fieldval,"mm/dd/yyyy",V.Local.sDueDT)
+
+		V.Local.fQty.Set(v.Dataview.DTLines!DVWO(v.Local.i).Qty_Ordered.fieldval)
+
+		f.Intrinsic.String.Build("{0}*!*{1}*!*{2}*!*{3}*!*{4}",V.Local.sPart_F,V.Local.sRev_F,V.Local.sLoc,V.Local.sDueDT,V.Local.fQty,V.Local.sLine)
+
+		f.Intrinsic.Control.If(V.Local.sData,=,"")
+			V.Local.sData.Set(V.Local.sLine)
+		f.Intrinsic.Control.Else
+			f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sData,v.Ambient.NewLine,V.Local.sLine,V.Local.sData)
+		f.Intrinsic.Control.EndIf 
+
+		'Flag WO created for Row
+		f.Data.DataView.SetValue("DTLines","DVWO",v.Local.i,"Job","11")
+
+
+		gui.frmDash.GsGrid.GetColumnIndexByName("Gridview","CreateWO",v.Local.sColumn)
+		gui.frmDash.GsGrid.SetCellProperty("Gridview",v.Local.sColumn,Variable.DataView.DTLines!DVWO(v.Local.i).DataTableIndex,"LOCKED",True)
+		Gui.frmDash.GsGrid.SetCellAppearance("GridView",v.Local.sColumn,Variable.DataView.DTLines!DVWO(v.Local.i).DataTableIndex,"backcolor","Pink")
+'		f.Data.DataView.SetValue("DTLines","DVWO",v.Local.i,"CreateWO",False)
+
+	f.Intrinsic.Control.Next(v.Local.i)
+
+
+	f.Intrinsic.Control.If(V.Local.sData,<>,"")
+'		f.Intrinsic.String.Build("{0}WO_4649.txt",v.Caller.LocalGSSTempDir,V.Local.sfile)
+		
+		V.Local.sdate.Declare
+		V.Local.sdate1.Declare
+		V.Local.sFileName.Declare
+		V.Local.sFolder.Declare
+		v.local.bRet.Declare
+
+		f.Intrinsic.String.Build("{0}\Custom\",v.Caller.GlobalDir,V.Local.sFolder)
+		
+		f.Intrinsic.File.DirExists(V.Local.sFolder,v.local.bRet)
+	    f.Intrinsic.Control.If(v.local.bRet,=,False)
+	        f.Intrinsic.File.CreateDir(V.Local.sFolder)
+	    f.Intrinsic.Control.EndIf
+	    
+	    f.Intrinsic.String.Build("{0}\Custom\5103\",v.Caller.GlobalDir,V.Local.sFolder)
+	    f.Intrinsic.File.DirExists(V.Local.sFolder,v.local.bRet)
+	    f.Intrinsic.Control.If(v.local.bRet,=,False)
+	        f.Intrinsic.File.CreateDir(V.Local.sFolder)
+	    f.Intrinsic.Control.EndIf
+		
+		Function.Intrinsic.String.Format (V.Ambient.Date,"YYYYDDMM",V.Local.sdate)
+		Function.Intrinsic.String.Format (V.Ambient.Time,"HHNNSS",V.Local.sdate1)
+		f.Intrinsic.String.Build("WO_5103_{0}_{1}_{2}{3}.TXT",v.Caller.Terminal,v.Caller.User,V.Local.sdate,V.Local.sdate1,V.Local.sFileName)
+		f.Intrinsic.String.Build("{0}{1}",V.Local.sFolder,V.Local.sFileName,v.Local.sFile)
+		
+		Function.Intrinsic.File.String2File(V.Local.sfile,V.Local.sData)
+'
+
+		F.Global.Callwrapper.New("GenFG","Manufacturing.CreateWorkOrderFinishedGoodPart")
+		F.Global.Callwrapper.SetProperty("GenFG","FileName",V.Local.sfile)
+		F.Global.CallWrapper.Run("GenFG")
+		F.Global.CallWrapper.GetProperty("GenFG","ReturnCode",V.Local.sRet)
+
+		'Get JOB NO from Return file
+		f.Intrinsic.Control.CallSub(outsidescript,"FileOUT",V.Local.sfile)
+
+		f.Intrinsic.UI.ChangeWaitStatus("Saving to custom table")
+		
+		
+		'Save JOB to custom table
+		f.Data.DataView.ToDataTable("DTLines","DVWO","DTSave")
+		F.Data.DataTable.SaveToDB("DTSave","conx","GCG_5103_SOPODash_1","Orderno*!*Line*!*PO_NO",256,"Orderno@!@SO*!*Line@!@Line*!*JOB@!@JOB*!*PO_NO@!@PO_NO")
+		'Save filename to User field10
+		f.Data.DataTable.AddExpressionColumn("DTSave","WO","string","SUBSTRING([JOB],1,6)")
+		f.Data.DataTable.AddExpressionColumn("DTSave","Suffix","string","SUBSTRING([JOB],7,3)")
+		
+		f.Intrinsic.UI.ChangeWaitStatus("Saving to WO_USER_FLDS")
+
+		F.Data.DataTable.SaveToDB("DTSave","conx","WO_USER_FLDS","Job*!*Suffix",256,"JOB@!@JOB*!*Suffix@!@Suffix*!*Filname@!@User_10")
+	
+		' if outside script exist call
+		f.Intrinsic.String.Build("{0}\RFC_SeatTrack_Batch.g2u",v.Caller.GasDir,v.Local.sPgm)
+		F.Intrinsic.File.Exists(v.Local.sPgm,V.Local.bExists)
+		F.Intrinsic.Control.If(V.Local.bExists,=,true)
+			f.Intrinsic.UI.ChangeWaitStatus("Processing Outside Script")
+			f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.DTOut.rowcount--,1)
+				f.Intrinsic.Control.If(v.DataTable.DTOut(v.Local.i).Status.fieldvaltrim,=,"Y")
+					f.Intrinsic.Control.If(v.DataTable.DTOut(v.Local.i).Sufix.fieldvaltrim,<>,"")
+						v.Local.sWo.Set(v.DataTable.DTOut(v.Local.i).WO.fieldvaltrim)
+						v.Local.sSuffix.Set(v.DataTable.DTOut(v.Local.i).Sufix.fieldvaltrim)
+						f.Intrinsic.String.Build("{0}{1}",v.Local.sWo,v.Local.sSuffix,v.Local.sWo)
+					f.Intrinsic.control.else
+						v.Local.sWo.Set(v.DataTable.DTOut(v.Local.i).WO.fieldvaltrim)
+						f.Intrinsic.String.Build("{0}",v.Local.sWo,v.Local.sWo)
+					f.Intrinsic.Control.EndIf 
+					f.Data.DataView.SetValue("DTLines","DVWO",v.Local.i,"Job",v.Local.sWo)
+					f.Global.General.SetPassedDataElement("WO",v.Local.sWo)
+					'read v.passed.WO
+					f.Global.General.CallSyncGAS(v.Local.sPgm,v.Local.iPID)
+				f.Intrinsic.Control.EndIf 
+			f.Intrinsic.Control.Next(v.Local.i)
+		F.Intrinsic.Control.EndIf
+		f.Data.DataTable.SetValue("DTLines",-1,"CreateWO",False)
+		Function.Data.DataTable.Close("DTSave")
+		Function.Data.DataTable.Close("DTOut")
+	f.Intrinsic.Control.EndIf 	
+	f.Data.DataView.Close("DTLines","DVWO")	
+	f.Intrinsic.Control.UnBlockEvents 
+
+'	f.Intrinsic.Control.CallSub(lockcreatewo)
+	f.Intrinsic.UI.CloseWaitDialog 
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("frmDash_UnLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	f.Intrinsic.Control.UnBlockEvents 
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.cmdProcess_Click.End
+
+Program.Sub.cmdBrowse_Click.Start
+F.Intrinsic.Control.SetErrorHandler("frmDash_UnLoad_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sRet.Declare 
+
+
+Function.Intrinsic.UI.FolderBrowser("",v.Local.sRet) 
+f.Intrinsic.Control.If(v.Local.sRet,<>,v.Ambient.Cancel)
+	Function.Intrinsic.File.GetUNCname(v.Local.sRet,v.Local.sRet)
+	f.Intrinsic.String.Build("{0}\",v.Local.sRet,v.Local.sRet)
+	gui.frmDash.txtFolder.Text(v.Local.sRet)
+f.Intrinsic.Control.endif
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("frmDash_UnLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.cmdBrowse_Click.End
+
+Program.Sub.cmdImport_Click.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sfilename.Declare 
+V.Local.i.Declare(long)
+V.Local.sRet.Declare 
+V.Local.sFilePath.Declare 
+v.local.lposArray.Declare
+v.local.llenArray.Declare
+v.local.sretArray.Declare
+v.local.sSql.Declare 
+V.Local.sPURORDER.Declare 
+v.Local.sPO.Declare 
+V.Local.sFName.Declare 
+V.Local.sStatus.Declare 
+V.Local.sReturnFileName.Declare 
+v.Local.sfilter.Declare 
+V.Local.sSRFileName.Declare 
+v.Local.sTRFileName.Declare 
+v.Local.lRet.Declare 
+v.Local.bRet.Declare 
+v.local.smsg.declare
+v.local.sPackListno.declare
+v.Local.lposA.declare
+v.Local.lLenA.declare
+v.Local.sColumn.declare
+v.local.sPODue.declare
+v.local.DtPODue.Declare
+
+'Function.Intrinsic.Debug.InvokeDebugger
+'Function.Intrinsic.Debug.Stop
+
+Function.Intrinsic.UI.InvokeWaitDialog("Importing Data...")
+f.Intrinsic.Control.BlockEvents 
+
+
+'get all files from folder
+'20191023/KS - Had to remove the middle parameter (,0) from GetFileList or no results would be returned.
+'F.Intrinsic.File.GetFileList(v.Screen.frmDash!txtFolder.Text,0,V.Local.sfilename)
+F.Intrinsic.File.GetFileList(v.Screen.frmDash!txtFolder.Text,V.Local.sfilename)
+f.Intrinsic.Control.If(V.Local.sfilename.trim,<>,"")
+	F.Intrinsic.String.Split(V.Local.sfilename,":",V.Local.sfilename)
+
+	'Extract Partno,Po Line & PO due date from file 3rd line
+'	F.Intrinsic.String.Split("36,55,475",",",V.Local.lposArray)
+'	F.Intrinsic.String.Split("15,20,8",",",V.Local.llenArray)
+
+	'Extract Partno,Po Line, qty & PO due date from file 3rd line
+	F.Intrinsic.String.Split("36,55,77,475",",",V.Local.lposArray)
+	F.Intrinsic.String.Split("15,20,8,8",",",V.Local.llenArray)
+
+
+	F.Intrinsic.Control.If(v.DataTable.DTPO.Exists,=,True)
+		F.Data.DataTable.Close("DTPO")
+	f.Intrinsic.Control.EndIf 
+
+	'create a dummy datatable
+	f.Intrinsic.String.Build("select ' ' as POParts,DESC_RT_LINE,UM_INVENTORY,' ' as Product_line,RATE, ' ' as qty,' ' as VendorID,' ' as PO_DurDate,' ' as Filname,' ' as PO  from v_ROUTER_LINE where Product_line = '0---2'","",v.local.sSql)
+	f.Data.DataTable.CreateFromSQL("DTPO","conx",v.local.sSql,True)
+
+''	gui.frmDash.GsGrid.enabled(false)
+'	gui.frmDash.GsGrid.SuspendLayout 
+
+	f.Intrinsic.Control.For(v.Local.i,0,V.Local.sfilename.UBound,1)
+		'Read only files name contains 856
+		f.Intrinsic.String.IsInString(V.Local.sfilename(v.Local.i),"EA856",True,v.Local.bRet)
+		f.Intrinsic.Control.If(v.Local.bRet,=,True)
+			Function.Intrinsic.UI.ChangeWaitStatus("",v.Local.i,1,V.Local.sfilename.UBound)
+			f.Intrinsic.String.Build("{0}{1}",v.Screen.frmDash!txtFolder.Text,V.Local.sfilename(v.Local.i),V.Local.sFilePath)
+			f.Intrinsic.File.File2String(V.Local.sFilePath,V.Local.sRet)
+			f.Intrinsic.String.Split(V.Local.sRet,v.Ambient.NewLine,V.Local.sRet)
+			'split 3rd line
+			function.Intrinsic.String.PositionalSplit(V.Local.sRet(2),v.local.lposArray, v.local.llenArray, v.local.sretArray)
+			
+			'get packlist no for unique
+			v.Local.lposA.set(55)
+			v.Local.lLenA.set(12)
+			function.Intrinsic.String.PositionalSplit(V.Local.sRet(1),v.Local.lposA,v.Local.lLenA,v.local.sPackListno)
+			
+'			'check File imported earlier
+'			f.Data.DataView.Create("DTLines","DVPO")
+'			f.Intrinsic.String.Build("Filname='{0}'",V.Local.sfilename(v.Local.i),v.Local.sfilter)
+'			Function.Data.DataView.SetFilter("DTLines","DVPO",v.Local.sFilter)
+'			F.Intrinsic.Control.If(Variable.DataView.DTLines!DVPO.rowcount,>,0)
+'				f.Intrinsic.String.Build("Import file already Exist, Cannot Process : {0}",V.Local.sfilename(v.Local.i),v.local.smsg)
+'				f.Intrinsic.UI.Msgbox(v.local.smsg)
+'			f.Intrinsic.Control.Else
+'				f.Intrinsic.Control.CallSub(GetData,"Part",v.local.sretArray(1).Trim,"POLine",v.local.sretArray(0),"POQty",v.local.sretArray(2).Long,"PODueDate",v.local.sretArray(3),"Fname",V.Local.sfilename(v.Local.i),"PackList",v.local.sPackListno)
+'			Function.Intrinsic.Control.EndIf
+'			f.Data.DataView.Close("DTLines","DVPO")
+
+			'check Pack list imported earlier
+			f.Data.DataView.Create("DTLines","DVPO")
+			f.Intrinsic.String.Build("Packlist='{0}'",v.local.sPackListno,v.Local.sfilter)
+			Function.Data.DataView.SetFilter("DTLines","DVPO",v.Local.sFilter)
+			F.Intrinsic.Control.If(Variable.DataView.DTLines!DVPO.rowcount,>,0)
+				f.Intrinsic.String.Build("Pack list {0} already exist, cannot process file Import : {1}",v.local.sPackListno,V.Local.sfilename(v.Local.i),v.local.smsg)
+				f.Intrinsic.UI.Msgbox(v.local.smsg)
+				gui.frmDash.GsGrid.GetColumnIndexByName("Gridview","CreateWO",v.Local.sColumn)
+				f.Intrinsic.String.Mid(v.local.sretArray(3),5,2,v.local.sPODue)
+				f.Intrinsic.String.Build("{0}/{1}/{2}",v.local.sretArray(3).left4,v.local.sPODue,v.local.sretArray(3).right2,v.local.DtPODue)
+				Function.Data.DataTable.AddRowByMap("DTLines", "CustPO_Line*!*PO_DurDate*!*Extrusion_Part*!*Filname*!*PackList*!*User_4*!*Job*!*Hist*!*CreateWO",v.local.sretArray(0),v.local.DtPODue,v.local.sretArray(1).Trim,V.Local.sfilename(v.Local.i),v.local.sPackListno,"Pack list already exist","1","1",False)
+				gui.frmDash.GsGrid.SetCellProperty("Gridview",v.Local.sColumn,v.DataTable.DTLines.rowcount,"LOCKED",True)
+			f.Intrinsic.Control.Else
+				f.Intrinsic.Control.CallSub(GetData,"Part",v.local.sretArray(1).Trim,"POLine",v.local.sretArray(0),"POQty",v.local.sretArray(2).Long,"PODueDate",v.local.sretArray(3),"Fname",V.Local.sfilename(v.Local.i),"PackList",v.local.sPackListno)
+			Function.Intrinsic.Control.EndIf
+			f.Data.DataView.Close("DTLines","DVPO")
+		f.Intrinsic.Control.endif
+	f.Intrinsic.Control.Next(v.Local.i)
+
+	f.Intrinsic.Control.If(v.dataTable.DTPO.rowcount,>,0)
+
+'get rate from VEND_QTE_LINES 
+		v.local.sSql.set("select distinct INV.part,unit_price from v_Order_header ORDH Join v_ORDER_LINES on v_ORDER_LINES.order_no = ORDH.order_no ")
+		F.Intrinsic.String.Build(" {0} join v_ROUTER_LINE on ROUTER = v_ORDER_LINES.Part Join INV_CROSS_REF CrossRef on CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607' ",v.local.sSql,v.local.sSql)
+		F.Intrinsic.String.Build(" {0} Join VEND_QTE_LINES INV on INV.Part = CrossRef.PART WHERE  v_ORDER_LINES.RECORD_TYPE = 'L' AND v_ORDER_LINES.USER_4 like ' %'   ORDER BY INV.seq desc ",v.local.sSql,v.local.sSql)
+
+		F.Data.Dictionary.CreateFromSQL("DICLn", "conx",V.Local.sSQL)
+		F.Data.Dictionary.SetDefaultReturn("DICLn","0")
+		F.Data.DataTable.FillFromDictionary("DTPO", "DICLn", "PoParts", "Rate")
+		f.Data.Dictionary.Close("DICLn")
+
+		Function.Intrinsic.UI.ChangeWaitStatus("Creating PO...")
+		'Create PO
+			'---### Get Last PO Number ###---
+		V.Local.sSql.Set("select LAST_PO_NUM from LAST_PO where ASS_SYS='PUR' and ASS_SUB_SYS='CTL'")
+		F.ODBC.Connection!Conx.OpenLocalRecordsetRO("rstLastPO",V.Local.sSql)
+		F.Intrinsic.Control.If(V.ODBC.Conx!rstLastPO.EOF,=,False)
+			v.Local.sPO.Set(V.ODBC.Conx!rstLastPO.FieldVal!LAST_PO_NUM)
+		F.Intrinsic.Control.EndIf
+		F.ODBC.Conx!rstLastPO.Close
+		F.Intrinsic.Control.For(v.Local.i,0,v.dataTable.DTPO.rowcount--,1)
+			F.Intrinsic.Math.Add(v.Local.sPO,1,v.Local.sPO)
+			F.Intrinsic.Control.CallSub(NewPurorder,"LnNo",v.Local.i,"PO",v.Local.sPO)
+			f.Intrinsic.Control.If(V.Local.sPURORDER,=,"")
+				V.Local.sPURORDER.Set(v.Args.POTEXT)
+			f.Intrinsic.Control.else
+				f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sPURORDER,V.Ambient.NewLine,V.Args.POTEXT,V.Local.sPURORDER)
+			f.Intrinsic.Control.EndIf 
+			f.Data.DataTable.SetValue("DTPO",v.Local.i,"PO",v.Local.sPO)
+		f.Intrinsic.Control.Next(v.Local.i)
+
+		'update Last PO number used
+		F.Intrinsic.String.LPad(v.Local.sPO,"0",7,v.Local.sPO)
+		F.Intrinsic.String.Concat("Update LAST_PO Set LAST_PO_NUM= '",v.Local.sPO,"' where ASS_SYS='PUR' and ASS_SUB_SYS='CTL' ",V.Local.sSql)
+		F.ODBC.Connection!Conx.Execute(V.Local.sSql)
+
+		'Write PO info to PURORDER.txt
+		F.Intrinsic.String.Concat(V.Caller.FilesDir,"\PURORDER.txt",V.Local.sFName)
+		F.Intrinsic.File.String2File(V.Local.sFName,V.Local.sPURORDER)
+
+		F.Global.Callwrapper.New("POUpload","Purchasing.PurchaseOrderUpload")
+		F.Global.Callwrapper.SetProperty("POUpload","Mode",0)
+		'F.Global.Callwrapper.SetProperty("POUpload","FileName",V.Local.sFName)
+		F.Global.Callwrapper.SetProperty("POUpload","FileName","PURORDER")
+		F.Global.CallWrapper.Run("POUpload")
+
+		F.Global.CallWrapper.GetProperty("POUpload","Status",V.Local.sStatus)
+
+		f.Intrinsic.Control.If(V.Local.sStatus,<>,"Success")
+			f.Intrinsic.UI.Msgbox("{Po Creation Error")
+			f.Intrinsic.UI.CloseWaitDialog
+			f.Intrinsic.Control.UnBlockEvents 
+			F.Intrinsic.Control.ExitSub
+		f.Intrinsic.Control.EndIf
+
+		F.Global.CallWrapper.GetProperty("POUpload","ReturnFileName",V.Local.sReturnFileName)
+
+		f.Data.DataView.Create("DTLines","DVPO")
+		F.Intrinsic.Control.For(v.Local.i,0,v.DataTable.DTPO.rowcount--,1)
+			f.Intrinsic.String.Build("Filname='{0}'",v.DataTable.DTPO(v.Local.i).Filname.fieldval,v.Local.sfilter)
+			Function.Data.DataView.SetFilter("DTLines","DVPO",v.Local.sFilter)
+			F.Intrinsic.Control.If(Variable.DataView.DTLines!DVPO.rowcount,>,0)
+				F.Intrinsic.String.LPad(v.DataTable.DTPO(v.Local.i).PO.fieldval,"0",7,V.Local.sPO)
+				Function.Data.Dataview.SetValue("DTLines","DVPO",-1,"PO_NO",V.Local.sPO)
+			Function.Intrinsic.Control.EndIf	
+		f.Intrinsic.Control.Next(v.Local.i)
+	f.Intrinsic.Control.EndIf 
+
+
+f.Intrinsic.Control.CallSub(savecusttbl)
+
+f.Intrinsic.Control.CallSub(lockcreatewo,"mode","I")
+
+Function.Intrinsic.UI.InvokeWaitDialog("Moving file...")
+	'move files after process
+	'20191031/KS - Found more instances of GetFileList with 3 parameters. 0 no longer works as second parameter.
+	'F.Intrinsic.File.GetFileList(v.Screen.frmDash!txtFolder.Text,0,V.Local.sfilename)	
+	F.Intrinsic.File.GetFileList(v.Screen.frmDash!txtFolder.Text,V.Local.sfilename) 
+	F.Intrinsic.String.Split(V.Local.sfilename,":",V.Local.sfilename)
+	f.Intrinsic.Control.For(v.Local.i,0,V.Local.sfilename.UBound,1)
+		f.Intrinsic.String.IsInString(V.Local.sfilename(v.Local.i),"EA856",True,v.Local.bRet)
+		f.Intrinsic.Control.If(v.Local.bRet,=,True)
+			f.Intrinsic.String.Build("{0}{1}",v.Screen.frmDash!txtFolder.Text,V.Local.sfilename(v.Local.i),V.Local.sSRFileName)
+			f.Intrinsic.String.Build("{0}\Processed",v.Screen.frmDash!txtFolder.Text,V.Local.sFilePath)
+			'checking if folders exist if not creating folders
+			F.Intrinsic.File.DirExists(V.Local.sFilePath,V.Local.bRet)
+			F.Intrinsic.Control.If(V.Local.bRet,=,False)
+			'Create Directory
+				F.Intrinsic.File.CreateDir(V.Local.sFilePath)
+			F.Intrinsic.Control.EndIf
+			f.Intrinsic.String.Build("{0}\{1}",V.Local.sFilePath,V.Local.sfilename(v.Local.i),V.Local.sTRFileName)
+			F.Intrinsic.Control.Try
+				f.Intrinsic.File.MoveFile(V.Local.sSRFileName,v.Local.sTRFileName,v.Local.lRet)
+			F.Intrinsic.Control.Catch
+			f.Intrinsic.Control.If(v.Local.lRet,=,0)
+				f.Intrinsic.String.Build("Failed to move the files to processed folder at this time, please move {0} manually after the import is completed.",V.Local.sfilename(v.Local.i),v.local.smsg)
+				f.Intrinsic.UI.Msgbox(v.local.smsg)
+			f.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndTry
+		f.Intrinsic.Control.EndIf
+	f.Intrinsic.Control.Next(v.Local.i)
+	'Auto Export
+	
+	f.Intrinsic.Control.CallSub(ExportFile,"sMode","AE")
+	Function.Data.DataView.SetSort("DTLines","DVLines","Orderno,RECORD_NO,PO_Durdate ASC")
+
+f.Intrinsic.Control.Else
+	f.Intrinsic.UI.Msgbox("No files to Import")
+'	gui.frmDash.cmdImport.enabled(True)
+f.Intrinsic.Control.EndIf 
+
+Function.Intrinsic.UI.CloseWaitDialog
+'f.Intrinsic.UI.Msgbox("Files Import completed")
+'gui.frmDash.GsGrid.ResumeLayout 
+f.Intrinsic.Control.UnBlockEvents 
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	f.Intrinsic.Control.UnBlockEvents 
+	Function.Intrinsic.UI.CloseWaitDialog 
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.cmdImport_Click.End
+
+Program.Sub.GetData.Start
+F.Intrinsic.Control.SetErrorHandler("GetData_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.local.sSql.Declare
+v.local.DtPODue.Declare
+v.local.sPODue.Declare
+v.Local.sColumn.Declare
+v.Local.it.Declare 
+
+gui.frmDash.GsGrid.GetColumnIndexByName("Gridview","CreateWO",v.Local.sColumn)
+f.Intrinsic.String.Mid(v.Args.PODueDate,5,2,v.local.sPODue)
+f.Intrinsic.String.Build("{0}/{1}/{2}",v.Args.PODueDate.left4,v.local.sPODue,v.Args.PODueDate.right2,v.local.DtPODue)
+'LEFT(RECORD_NO,3) as RECORD_NO
+'f.Intrinsic.String.Build("select ORDER_NO as Orderno,LEFT(RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,' ' as USER_4,'{0}' as 'CustPO_Line','{1}' as 'PO_DurDate',Router as 'Parts','{2}' as Extrusion_Part,CONVERT(0,SQL_BIT) as 'CreateWO','{3}' as Filname,RECORD_NO as Line,Qty_Ordered  from v_ORDER_LINES join v_ROUTER_LINE on ROUTER = Part WHERE PART_WC_OUTSIDE = '{2}' and RECORD_TYPE = 'L' AND v_ORDER_LINES.USER_4 = '' ORDER BY DATE_ITEM_PROM",v.Args.POLine,v.local.DtPODue,v.Args.Part,v.Args.Fname,v.local.sSql)
+'f.Intrinsic.String.Build("select ORDER_NO as Orderno,LEFT(RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,'custpo',' ' as USER_4,'{0}' as 'CustPO_Line','{1}' as 'PO_DurDate',Router as 'Parts','{2}' as Extrusion_Part,CONVERT(0,SQL_BIT) as 'CreateWO','{3}' as Filname,RECORD_NO as Line,Qty_Ordered,' ' as Job,CASE WHEN unit_price IS NULL THEN 0 else unit_price  END AS 'Rate',' ' as Hist  from v_ORDER_LINES join v_ROUTER_LINE on ROUTER = v_ORDER_LINES.Part Join INV_CROSS_REF CrossRef on   CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607' left join VEND_QTE_LINES on VEND_QTE_LINES.part = PART_WC_OUTSIDE WHERE CrossRef.MFG_PART = '{2}' and RECORD_TYPE = 'L' AND v_ORDER_LINES.USER_4 like ' %' ORDER BY DATE_ITEM_PROM",v.Args.POLine,v.local.DtPODue,v.Args.Part,v.Args.Fname,v.local.sSql)
+'f.Intrinsic.String.Build("select v_ORDER_LINES.ORDER_NO as Orderno,LEFT(v_ORDER_LINES.RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,Customer_PO,' ' as USER_4,'{0}' as 'CustPO_Line','{1}' as 'PO_DurDate',Router as 'OrdParts',CrossRef.PART as 'PoParts','{2}' as Extrusion_Part,CONVERT(0,SQL_BIT) as 'CreateWO','{3}' as Filname,v_ORDER_LINES.RECORD_NO as Line,Qty_Ordered,' ' as Job,CASE WHEN unit_price IS NULL THEN 0 else unit_price  END AS 'Rate',' ' as Hist  from v_ORDER_LINES join v_ROUTER_LINE on ROUTER = v_ORDER_LINES.Part join v_Order_header ORDH on v_ORDER_LINES.order_no = ORDH.order_no Join INV_CROSS_REF CrossRef on   CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607' left join VEND_QTE_LINES on VEND_QTE_LINES.part = PART_WC_OUTSIDE WHERE CrossRef.MFG_PART = '{2}' and v_ORDER_LINES.RECORD_TYPE = 'L' AND v_ORDER_LINES.USER_4 like ' %' ORDER BY DATE_ITEM_PROM",v.Args.POLine,v.local.DtPODue,v.Args.Part.trim,v.Args.Fname,v.local.sSql)
+'''Join INV_CROSS_REF CrossRef on   CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607'
+
+'f.Intrinsic.String.Build("select top {0} v_ORDER_LINES.ORDER_NO as Orderno,LEFT(v_ORDER_LINES.RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,Customer_PO,' ' as USER_4,'{1}' as 'CustPO_Line','{2}' as 'PO_DurDate',Router as 'OrdParts',CrossRef.PART as 'PoParts','{3}' as Extrusion_Part,CONVERT(0,SQL_BIT) as 'CreateWO','{4}' as Filname,v_ORDER_LINES.RECORD_NO as Line,Qty_Ordered,' ' as Job,'0' AS 'Rate',' ' as Hist,DESC_RT_LINE  from v_ORDER_LINES join v_ROUTER_LINE on ROUTER = v_ORDER_LINES.Part join v_Order_header ORDH on v_ORDER_LINES.order_no = ORDH.order_no Join INV_CROSS_REF CrossRef on   CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607'  WHERE CrossRef.MFG_PART = '{3}' and v_ORDER_LINES.RECORD_TYPE = 'L' AND v_ORDER_LINES.USER_4 like ' %' ORDER BY DATE_ITEM_PROM",v.Args.POQty,v.Args.POLine,v.local.DtPODue,v.Args.Part.trim,v.Args.Fname,v.local.sSql)
+
+
+f.Intrinsic.String.Build("select top {0} v_ORDER_LINES.ORDER_NO as Orderno,LEFT(v_ORDER_LINES.RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,Customer_PO,' ' as USER_4,'{1}' as 'CustPO_Line','{2}' as 'PO_DurDate',Router as 'OrdParts',CrossRef.PART as 'PoParts','{3}' as Extrusion_Part,CONVERT(0,SQL_BIT) as 'CreateWO','{4}' as Filname,'{5}' as PackList,v_ORDER_LINES.RECORD_NO as Line,Qty_Ordered,' ' as Job,'0' AS 'Rate',' ' as Hist,DESC_RT_LINE,INV.Product_Line as 'PL'  from v_ORDER_LINES join v_ROUTER_LINE on ROUTER = v_ORDER_LINES.Part join v_Order_header ORDH on v_ORDER_LINES.order_no = ORDH.order_no Join INV_CROSS_REF CrossRef on   CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607' Join v_Inventory_Mstr INV on INV.Part = CrossRef.PART WHERE CrossRef.MFG_PART = '{3}' and v_ORDER_LINES.RECORD_TYPE = 'L' AND v_ORDER_LINES.USER_4 like ' %'  ORDER BY DATE_ITEM_PROM",v.Args.POQty,v.Args.POLine,v.local.DtPODue,v.Args.Part.trim,v.Args.Fname,v.Args.PackList,v.local.sSql)
+
+f.Data.DataTable.CreateFromSQL("DTData","conx",v.local.sSql)
+
+'Data in the files dont match
+f.Intrinsic.Control.If(v.DataTable.DTData.rowcount,=,0)
+'F.Intrinsic.Debug.InvokeDebugger
+'
+'F.Intrinsic.Debug.Stop
+	Function.Data.DataTable.AddRowByMap("DtData", "CustPO_Line*!*PO_DurDate*!*Extrusion_Part*!*Filname*!*PackList*!*User_4*!*Job*!*Hist*!*CreateWO",v.Args.POLine,v.local.DtPODue,v.Args.part.trim,v.Args.Fname,v.Args.PackList,"NO MATCH","1","1",False)
+'	gui.frmDash.GsGrid.SetCellProperty("Gridview",v.Local.sColumn,Variable.DataView.DTLines!DVWO(v.Local.i).DataTableIndex,"LOCKED",True)
+	gui.frmDash.GsGrid.SetCellProperty("Gridview",v.Local.sColumn,v.DataTable.DTLines.rowcount,"LOCKED",True)
+f.Intrinsic.Control.Else 
+	f.Data.DataTable.SetValue("DTData",-1,"USER_4","SERIAL PENDING")
+f.Intrinsic.Control.EndIf 
+f.Data.DataTable.Merge("DTData","DTLines",True,2)
+
+
+f.Intrinsic.Control.If(v.dataTable.DTData(v.Local.it).Orderno.fieldvaltrim,<>,"")
+	f.Data.DataTable.Create("DTData1")
+	f.Data.DataTable.AddColumn("DTData1","PoParts","string")
+	f.Data.DataTable.AddColumn("DTData1","DESC_RT_LINE","string")
+	f.Data.DataTable.AddColumn("DTData1","Rate","long")
+	f.Data.DataTable.AddColumn("DTData1","qty","long")
+	f.Data.DataTable.AddColumn("DTData1","PO_DurDate","date")
+
+	f.Data.DataTable.AddColumn("DTData1","VendorID","string","101607")
+	f.Data.DataTable.AddColumn("DTData1","Filname","string")
+	f.Data.DataTable.AddColumn("DTData1","PackList","string")
+	f.Data.DataTable.AddColumn("DTData1","UM_INVENTORY","string")
+	f.Data.DataTable.AddColumn("DTData1","Product_line","string")
+
+	Function.Data.DataTable.AddRowByMap("DTData1","PoParts*!*DESC_RT_LINE*!*Rate*!*qty*!*Filname*!*PackList*!*UM_INVENTORY*!*VendorID*!*PO_DurDate*!*Product_line",v.dataTable.DTData(v.Local.it).PoParts.fieldval,v.dataTable.DTData(v.Local.it).DESC_RT_LINE.fieldval,0,v.Args.POQty,v.Args.Fname,v.Args.PackList,"EA","101607",v.local.DtPODue,v.dataTable.DTData(v.Local.it).PL.fieldval)
+
+'	Function.Data.DataTable.AddRowByMap("DTData1","PoParts*!*DESC_RT_LINE*!*Rate*!*qty*!*Filname*!*UM_INVENTORY*!*VendorID*!*PO_DurDate",v.dataTable.DTData(v.Local.it).PoParts.fieldval,v.dataTable.DTData(v.Local.it).DESC_RT_LINE.fieldval,0,v.Args.POQty,v.Args.Fname,"EA","101607",v.local.DtPODue)
+
+	f.Data.DataTable.Merge("DTData1","DTPO",True,2)
+
+	F.Data.DataTable.Close("DTData1")
+f.Intrinsic.Control.EndIf 
+F.Data.DataTable.Close("DTData")
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GetData_Err")
+
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription," with File name ",v.Args.Fname,V.Local.sError)
+
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GetData.End
+
+Program.Sub.Load_Grid.Start
+F.Intrinsic.Control.SetErrorHandler("Load_Grid_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sQuery.Declare 
+v.Local.i.Declare(long)
+v.Local.iTotClmn.Declare(long)
+v.Local.stitle.Declare 
+
+'
+	'Hist 1 is existing records
+'	F.Intrinsic.String.Build("select ORD.ORDER_NO as Orderno,LEFT(RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,Customer_PO,Extrusion_Part,ORD.part as Parts,CustPO_Line,USER_4,PO_Durdate,PO_NO,Rate,CONVERT(0,SQL_BIT) as 'CreateWO',GCG_5103_SOPODash.JOB as JOB,Filname,'1' as Hist,Line,Qty_Ordered from GCG_5103_SOPODash join v_Order_lines ORD on ORD.order_no = SO and Record_no = Line join v_Order_header ORDH on ORD.order_no = ORDH.order_no where USER_4 not like ' %' order by Orderno,RECORD_NO,PO_Durdate","",V.Local.sQuery)
+	'CASE WHEN WO.JOB IS NULL THEN CONVERT(0,SQL_BIT) else CONVERT(1,SQL_BIT)  END AS 'CreateWO'
+	'Join INV_CROSS_REF CrossRef on   CrossRef.PART =  PART_WC_OUTSIDE and  CrossRef.vendor = '101607' CrossRef.MFG_PART = '{2}'
+
+
+'	F.Intrinsic.String.Build("select ORD.ORDER_NO as Orderno,LEFT(ORD.RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,Customer_PO,Extrusion_Part,CrossRef.PART as PoParts,ORD.part as OrdParts,CustPO_Line,ORD.USER_4 as USER_4,PO_Durdate,PO_NO,Rate,CONVERT(0,SQL_BIT) as 'CreateWO',GCG_5103_SOPODash_1.JOB as JOB,Filname,Packlist,'1' as Hist,Line,Qty_Ordered from GCG_5103_SOPODash_1 join v_Order_lines ORD on ORD.order_no = SO and ORD.Record_no = Line join v_Order_header ORDH on ORD.order_no = ORDH.order_no Join INV_CROSS_REF CrossRef on   rtrim(CrossRef.MFG_PART) =  Extrusion_Part and  CrossRef.vendor = '101607' where ORD.USER_4 not like ' %' order by Orderno,RECORD_NO,PO_Durdate","",V.Local.sQuery)
+	F.Intrinsic.String.Build("select ORD.ORDER_NO as Orderno,LEFT(ORD.RECORD_NO,3) as RECORD_NO,DATE_ITEM_PROM,Customer_PO,Extrusion_Part,CrossRef.PART as PoParts,ORD.part as OrdParts,CustPO_Line,ORD.USER_4 as USER_4,PO_Durdate,PO_NO,Rate,CONVERT(0,SQL_BIT) as 'CreateWO',GCG_5103_SOPODash_1.JOB as JOB,Filname,Packlist,'1' as Hist,Line,Qty_Ordered from GCG_5103_SOPODash_1 join v_Order_lines ORD on ORD.order_no = SO and ORD.Record_no = Line join v_Order_header ORDH on ORD.order_no = ORDH.order_no Join INV_CROSS_REF CrossRef on   CrossRef.MFG_PART =  Extrusion_Part and  CrossRef.vendor = '101607' where ORD.USER_4 not like ' %' order by Orderno,RECORD_NO,PO_Durdate","",V.Local.sQuery)
+
+	F.Data.DataTable.CreateFromSQL("DTLines","conx",v.Local.sQuery,True)
+
+	F.Data.DataView.Create("DTLines","DVLines",22,"","Orderno,RECORD_NO,PO_Durdate ASC")
+'	F.Data.DataView.Create("DTLines","DVLines")
+
+	Function.Intrinsic.UI.InvokeWaitDialog("Loading Data...")
+
+	gui.frmDash.GsGrid.SuspendLayout 
+
+	gui.frmDash.GsGrid.AddGridViewFromDataView("GridView","DTLines","DVLines")
+	gui.frmDash.GsGrid.GetColumnCount("GridView",v.Local.iTotClmn)
+	f.Intrinsic.Math.Sub(v.Local.iTotClmn,1,v.Local.iTotClmn)
+	f.Intrinsic.Control.For(v.Local.i,0,v.Local.iTotClmn,1)
+		gui.frmDash.GsGrid.GetColumnNamebyIndex("GridView",v.Local.i,v.Local.stitle)
+		gui.frmDash.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"AllowEdit",False)
+		gui.frmDash.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"ReadOnly",True)
+
+		gui.frmDash.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderFontBold","True")
+		gui.frmDash.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderBackColor","#7FFF00")
+		gui.frmDash.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderHAlignment","Center")
+		gui.frmDash.GsGrid.SetColumnProperty("GridView",v.Local.stitle,"HeaderWordWrap","wrap")
+	f.Intrinsic.Control.Next(v.Local.i)
+'	
+	gui.frmDash.GsGrid.SetGridViewProperty("GridView", "ColumnPanelRowHeight", "35")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Orderno","CellForeColor","Blue")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","PO_NO","CellForeColor","Blue")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Job","CellForeColor","Blue")
+
+	'New Records colored Yellow
+'	gui.frmDash.GsGrid.AddStyleFormatCOndition("GridView", "User_4", "tagName1","Equal","SERIAL PENDING")
+	gui.frmDash.GsGrid.AddStyleFormatCOndition("GridView","Hist","tagName1","NotEqual","1")
+	gui.frmDash.GsGrid.SetStyleFormatConditionProperty("GridView","Hist","tagName1","Backcolor","Yellow")
+	gui.frmDash.GsGrid.SetStyleFormatConditionProperty("GridView","Hist","tagName1","ApplyToRow",True)
+
+
+	'No Match
+	gui.frmDash.GsGrid.AddStyleFormatCondition("GridView","User_4","tagName2","Equal","NO MATCH")
+	gui.frmDash.GsGrid.SetStyleFormatConditionProperty("GridView","User_4","tagName2","BackColor","Red")
+	gui.frmDash.GsGrid.SetStyleFormatConditionProperty("GridView","User_4","tagName2","ApplyToRow",True)
+	
+	
+	'Pack list already exist
+	gui.frmDash.GsGrid.AddStyleFormatCondition("GridView","Orderno","tagName2","Expression","[Orderno] is null")
+	gui.frmDash.GsGrid.SetStyleFormatConditionProperty("GridView","Orderno","tagName2","BackColor","Orange")
+	gui.frmDash.GsGrid.SetStyleFormatConditionProperty("GridView","Orderno","tagName2","ApplyToRow",True)
+
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Orderno","Caption","Sales Order Number")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Record_NO","Caption","Line Number")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","DATE_ITEM_PROM","Caption","Due Date")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Customer_PO","Caption","RTI/GSS Purchase Order")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","CustPO_Line","Caption","GKN PO-Line")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","OrdParts","Caption","SO/WO Part")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","POParts","Caption","RFC Extrusion Part")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Extrusion_Part","Caption","GKN Extrusion Part")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","PO_NO","Caption","PO #")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","PO_Durdate","Caption","PO Due Date")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","Filname","Caption","File Name")
+
+	gui.frmDash.GsGrid.SetColumnProperty("GridView", "PO_Durdate", "DisplayCustomDatetime", "d")
+	gui.frmDash.GsGrid.SetColumnProperty("GridView", "DATE_ITEM_PROM", "DisplayCustomDatetime", "d")
+'	
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","Extrusion_Part","MinWidth",120)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","Extrusion_Part","MaxWidth",120)
+'
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","User_4","MinWidth",160)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","User_4","MaxWidth",160)
+'
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","CustPO_Line","MinWidth",100)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","CustPO_Line","MaxWidth",100)
+'
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","CreateWO","MinWidth",70)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","CreateWO","MaxWidth",70)
+'
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","OrdParts","MinWidth",120)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","OrdParts","MaxWidth",120)
+'
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","POParts","MinWidth",120)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","POParts","MaxWidth",120)
+'
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","Customer_PO","MinWidth",120)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView","Customer_PO","MaxWidth",120)
+
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","CreateWO","AllowEdit",True)
+	gui.frmDash.GsGrid.SetColumnProperty("GridView","CreateWO","ReadOnly",False)
+
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView", "Filname", "Visible", False)
+	gui.frmDash.GsGrid.SetColumnProperty("GridView", "Hist", "Visible", False)
+'	gui.frmDash.GsGrid.SetColumnProperty("GridView", "JOB", "Visible", False)
+	gui.frmDash.GsGrid.SetColumnProperty("GridView", "Line", "Visible", False)
+	gui.frmDash.GsGrid.SetColumnProperty("GridView", "Qty_Ordered", "Visible", False)
+
+
+	gui.frmDash.GsGrid.SetGridviewProperty("GridView","OptionsViewColumnAutoWidth",False)
+	gui.frmDash.GsGrid.SetGridviewProperty("GridView","Showgrouppanel",True)
+	Gui.frmDash.GsGrid.SetGridViewProperty("GridView","OptionsViewShowGroupPanel",True)
+	gui.frmDash.GsGrid.SetGridviewProperty("GridView","OptionsFindAlwaysVisible",True)
+	Gui.frmDash.GsGrid.SetGridViewProperty("GridView","AllowFilter",True)
+	Gui.frmDash.GsGrid.SetGridViewProperty("GridView", "OptionsSelectionEnableAppearanceFocusedRow", "False") 
+
+	f.Intrinsic.Control.CallSub(lockcreatewo,"mode","N")
+
+	Function.Intrinsic.UI.CloseWaitDialog 
+	
+	gui.frmDash.GsGrid.ResumeLayout 
+	gui.frmDash.GsGrid.MainView("GridView")
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Load_Grid_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Load_Grid.End
+
+Program.Sub.NewPurorder.Start
+F.Intrinsic.Control.SetErrorHandler("NewPurorde_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+V.Local.sTemp.Declare(String)
+V.Local.sTempFull.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sVenID.Declare(String)
+V.Local.iQty.Declare(long)
+V.Local.sSql.Declare(String)
+V.Local.sVenName.Declare(String)
+V.Local.sVenAdd1.Declare(String)
+V.Local.sVenAdd2.Declare(String)
+V.Local.sVenState.Declare(String)
+V.Local.sVenZip.Declare(String)
+V.Local.sVenCity.Declare(String)
+V.Local.sVenAttn.Declare(String)
+V.Local.sGL.Declare(String)
+V.Local.sCurrency.Declare(String)
+V.local.sPODate.Declare(String)
+V.local.sPODueDate.Declare(String)
+V.Local.iLno.Declare(long)
+V.Local.sRet.Declare(String)
+V.Local.sPONumber.Declare(String)
+V.Local.sReqNo.Declare(String)
+V.Local.sFilName.Declare(String)
+
+
+F.Intrinsic.String.LPad(V.Args.PO,"0",7,V.Local.sPONumber)
+V.Local.sVenID.set(v.dataTable.DTPO(V.Args.LnNo).VendorID.fieldvaltrim)
+F.Intrinsic.String.LPad(V.Local.sVenID.Trim,"0",6,V.Local.sVenID)
+V.Local.iQty.Set(v.dataTable.DTPO(V.Args.LnNo).Qty.fieldval)
+F.Intrinsic.String.RPad(v.dataTable.DTPO(V.Args.LnNo).PoParts.fieldvaltrim," ",20,V.Local.sPart)
+
+'
+'	f.Intrinsic.Control.If(V.Args.LnNo,=,1)
+		'--# Header #--
+			F.Intrinsic.String.Concat("select v.vendor,v.Name_Vendor,v.address1, v.address2, V.City, v.rec , V.state, V.Code_Zip, V.Country, V.attention, V.Normal_GL_Account, C.Buyer+C.Territory as CurrencyCode from VENDOR_MASTER as V left join (select *  from VENDOR_MASTER where rec=4)as c on c.vendor=v.vendor where v.rec=1 and v.Vendor='",V.local.sVenID,"'",V.Local.sSql)
+			F.ODBC.Connection!Conx.OpenLocalRecordsetRO("rstVend",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.Conx!rstVend.EOF,=,False)
+				V.Local.sVenName.set(V.ODBC.Conx!rstVend.FieldVal!Name_Vendor)
+				V.Local.sVenAdd1.set(V.ODBC.Conx!rstVend.FieldVal!address1)
+				V.Local.sVenAdd2.set(V.ODBC.Conx!rstVend.FieldVal!address2)
+				V.Local.sVenState.set(V.ODBC.Conx!rstVend.FieldVal!State)
+				V.Local.sVenZip.set(V.ODBC.Conx!rstVend.FieldVal!Code_Zip)
+				V.Local.sVenCity.set(V.ODBC.Conx!rstVend.FieldVal!City)
+				V.Local.sVenAttn.set(V.ODBC.Conx!rstVend.FieldVal!Attention)
+				V.Local.sGL.set(V.ODBC.Conx!rstVend.FieldVal!Normal_GL_Account)
+				V.Local.sCurrency.set(V.ODBC.Conx!rstVend.FieldVal!CurrencyCode)
+			F.Intrinsic.Control.EndIf
+			F.ODBC.Conx!rstVend.Close
+
+			'PO Date
+			F.Intrinsic.String.Format(V.ambient.Date,"MMDDYY",V.local.sPODate)
+			'RequiredDate,DueDate
+			F.Intrinsic.String.Format(v.dataTable.DTPO(V.Args.LnNo).PO_DurDate.fieldval,"MMDDYY",V.local.sPODueDate)
+
+			'A Record
+		'PO,Rec Type
+		F.Intrinsic.String.Concat(V.Local.sPONumber,"  A",V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",19,V.Local.sTemp)
+		'Ship Via
+		V.Local.sRet.Set("")
+		F.Intrinsic.String.RPad(V.Local.sRet," ",15,V.Local.sRet)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+		'FOB
+		V.Local.sRet.Set("")
+		F.Intrinsic.String.RPad(V.Local.sRet," ",15,V.Local.sRet)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+		'Terms
+		V.Local.sRet.Set("")
+		F.Intrinsic.String.RPad(V.Local.sRet," ",12,V.Local.sRet)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+		
+		V.Local.sRet.Set("")
+		F.Intrinsic.String.RPad(V.Local.sRet," ",82,V.Local.sRet)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+		
+
+'		V.Local.sFilName.set("Ranjit")
+		f.Intrinsic.String.Right(v.dataTable.DTPO(V.Args.LnNo).Filname.fieldvaltrim,30,V.Local.sFilName)
+		'Special Instructions - Line 1 - 3
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sFilName,V.Local.sTemp)
+'		F.Intrinsic.String.RPad(V.Local.sTemp," ",112,V.Local.sTemp)
+		
+		'PO Date
+		F.Intrinsic.String.Rpad(V.Local.sTemp," ",195,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.local.sPODate,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",207,V.Local.sTemp)
+		'Date Due
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.local.sPODueDate,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",229,V.Local.sTemp)
+		'GL Account
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sGL,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",267,V.Local.sTemp)
+		'Vendor #
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenID,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",298,V.Local.sTemp)
+	'	'User 1 - Sales Order#, New Line
+	'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Global.sSO,V.Local.sTemp)
+
+		F.Intrinsic.String.Concat(V.Local.sTempFull,V.Local.sTemp,V.Ambient.NewLine,V.Local.sTempFull)
+
+			'B Record
+		'PO,Rec Type,Name Vendor
+		F.Intrinsic.String.Concat(V.Local.sPONumber,"  B",V.Local.sVenName,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",40,V.Local.sTemp)
+		'Vendor Address
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenAdd1,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",70,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenAdd2,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",190,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenCity,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",210,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenState,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",212,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenZip,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",237,V.Local.sTemp)
+		'Attention
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenAttn,V.Local.sTemp)
+
+		F.Intrinsic.String.Concat(V.Local.sTempFull,V.Local.sTemp,V.Ambient.NewLine,V.Local.sTempFull)
+
+
+		'C Record
+		F.Intrinsic.String.Concat(V.Local.sPONumber,"  C",V.Local.sVenName,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",40,V.Local.sTemp)
+		'Vendor Address
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenAdd1,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",70,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenAdd2,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",190,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenCity,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",210,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenState,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",212,V.Local.sTemp)
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenZip,V.Local.sTemp)
+		F.Intrinsic.String.RPad(V.Local.sTemp," ",237,V.Local.sTemp)
+		'Attention
+		F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sVenAttn,V.Local.sTemp)
+
+		F.Intrinsic.String.Concat(V.Local.sTempFull,V.Local.sTemp,V.Ambient.NewLine,V.Local.sTempFull)
+'	f.Intrinsic.Control.EndIf 
+
+	'PO, Line,Part
+
+'	f.Intrinsic.Math.Add(V.Args.LnNo,1,V.Local.iLno)
+	V.Local.iLno.Set(1)
+	F.Intrinsic.String.LPad(V.Local.iLno,"0",3,V.Local.sRet)
+
+'	F.Intrinsic.String.LPad(v.dataTable.DTPO(V.Args.LnNo).RecordNo.fieldval,"0",3,V.Local.sRet)
+
+	F.Intrinsic.String.Concat(V.Local.sPONumber,V.Local.sRet,v.dataTable.DTPO(V.Args.LnNo).PoParts.fieldval,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",30,V.Local.sTemp)
+
+	'LOC
+	V.Local.sRet.Set("20")
+	F.Intrinsic.String.RPad(V.Local.sRet," ",32,V.Local.sRet)
+	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+
+	'Description
+	F.Intrinsic.String.Concat(V.Local.sTemp,v.dataTable.DTPO(V.Args.LnNo).DESC_RT_LINE.fieldvaltrim,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",62,V.Local.sTemp)
+	'UM
+	F.Intrinsic.String.Concat(V.Local.sTemp,v.dataTable.DTPO(V.Args.LnNo).UM_INVENTORY.fieldvaltrim,V.Local.sTemp)
+'	F.Intrinsic.String.Rpad(V.Local.sTemp," ",87,V.Local.sTemp)
+	F.Intrinsic.String.Rpad(V.Local.sTemp," ",77,V.Local.sTemp)
+
+	'Requisition Number
+	V.Local.sRet.Set("")
+	F.Intrinsic.String.RPad(V.Local.sRet," ",87,V.Local.sRet)
+	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+
+	'Taxable
+	F.Intrinsic.String.Concat(V.Local.sTemp,"",V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",100,V.Local.sTemp)
+
+
+	'GL Account
+'	F.Intrinsic.String.Concat(V.Local.sTemp,"702",V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",121,V.Local.sTemp)
+
+	f.Intrinsic.Control.CallSub(getglacct,"POPart",v.dataTable.DTPO(V.Args.LnNo).PoParts.fieldval,"PRL",v.dataTable.DTPO(V.Args.LnNo).Product_line.fieldval,"PO",V.Local.sPONumber.long,"LN",V.Local.iLno)
+
+	F.Intrinsic.String.Concat(V.Local.sTemp,v.Args.GLACCT,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",121,V.Local.sTemp)
+
+	'PL
+	F.Intrinsic.String.Concat(V.Local.sTemp,v.dataTable.DTPO(V.Args.LnNo).Product_line.fieldval,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",124,V.Local.sTemp)
+
+'	V.Local.sRet.Set("")
+'	F.Intrinsic.String.RPad(V.Local.sRet," ",124,V.Local.sRet)
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+
+	'RequiredDat eLN DueDate
+	F.Intrinsic.String.Format(v.dataTable.DTPO(V.Args.LnNo).PO_DurDate.fieldval,"MMDDYY",V.local.sPODueDate)
+	F.Intrinsic.String.Concat(V.Local.sTemp,V.local.sPODueDate,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",136,V.Local.sTemp)
+	'Cost
+	F.Intrinsic.String.Concat(V.Local.sTemp,v.dataTable.DTPO(V.Args.LnNo).RATE.fieldval,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",168,V.Local.sTemp)
+	'Qty
+	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.iQty,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",339,V.Local.sTemp)
+	'Currency
+	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sCurrency,V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",358,V.Local.sTemp)
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",548,V.Local.sTemp)
+
+	'Requisition Line
+	V.Local.sRet.Set("")
+	F.Intrinsic.String.RPad(V.Local.sRet," ",551,V.Local.sRet)
+	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+
+'	'PL
+'	F.Intrinsic.String.Concat(V.Local.sTemp,v.dataview.DTBatchTemp!DTBatchViewTemp1(V.Args.LnNo).Product_Line.fieldvaltrim,V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",136,V.Local.sTemp)
+'	'Cost
+'	F.Intrinsic.String.Concat(V.Local.sTemp,v.dataview.DTBatchTemp!DTBatchViewTemp1(V.Args.LnNo).unit_price.fieldval,V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",168,V.Local.sTemp)
+'	'Qty
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.iQty,V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",339,V.Local.sTemp)
+'	'Currency
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sCurrency,V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",358,V.Local.sTemp)
+'	'User_1
+'	F.Intrinsic.String.Concat(V.Local.sTemp,"",V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",388,V.Local.sTemp)
+'	'User 2 -remaining of description
+'	F.Intrinsic.String.Mid(V.uGlobal.uPOLines(v.Local.i)!Description,31,30,V.Local.sRet)
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+'	'User 3 - remaining of description
+'	F.Intrinsic.String.Mid(V.uGlobal.uPOLines(v.Local.i)!Description,61,30,V.Local.sRet)
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+'	'User 4 - remaining of description
+'	F.Intrinsic.String.Mid(V.uGlobal.uPOLines(v.Local.i)!Description,91,30,V.Local.sRet)
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.Local.sRet,V.Local.sTemp)
+'	F.Intrinsic.String.RPad(V.Local.sTemp," ",478,V.Local.sTemp)
+'	'User 5
+'	F.Intrinsic.String.Concat(V.Local.sTemp,V.uGlobal.uPOLines(v.Local.i)!User_5,V.Local.sTemp)
+	'Add line to variable that will be written to PURORDER.txt
+	F.Intrinsic.String.Concat(V.Local.sTempFull,V.Local.sTemp,V.Ambient.NewLine,V.Local.sTempFull)
+
+
+	Function.Intrinsic.Variable.AddRV("POTEXT",V.Local.sTempFull)
+
+
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("NewPurorde_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.NewPurorder.End
+
+Program.Sub.GsGrid_CellValueChanged.Start
+F.Intrinsic.Control.SetErrorHandler("cmdImport_Click_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+'	f.Intrinsic.Control.If(V.Args.Value,=,True,"OR",V.Args.CellValue,=,True)
+''		gui.Form.GsGridWF.GetCellValue(v.Global.sgDetView,24,V.Args.RowIndex,V.Local.sQO)
+''		f.Intrinsic.Control.If(V.Local.sQO.Trim,<>,"")
+''			gui.Form.GsGridWF.setCellValue(v.Global.sgDetView,2,V.Args.RowIndex,True)
+'			Function.Data.DataTable.SetValue(v.Global.sgREL,V.Args.RowIndex,V.Args.column , True)
+
+'f.Intrinsic.UI.Msgbox(V.Args.column)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdImport_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GsGrid_CellValueChanged.End
+
+Program.Sub.GsGrid_RowCellClick.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSO.Declare(String)
+v.Local.iCol.Declare 
+V.Local.sFilePath.Declare 
+V.Local.sfilename.Declare 
+V.Local.sJob.Declare 
+V.Local.sSuffix.Declare 
+V.Local.bSuffix.Declare 
+
+
+f.Intrinsic.Control.BlockEvents 
+f.Intrinsic.Control.If(V.Args.column,=,"Orderno")
+	gui.frmDash.GsGrid.GetColumnIndexByName("GridView", "Orderno",v.Local.iCol)
+	gui.frmDash.GsGrid.GetCellValue("GridView",v.Local.iCol,V.Args.RowIndex,V.Local.sSO)
+	f.Intrinsic.Control.If(V.Local.sSO.Trim,<>,"")
+		F.Intrinsic.String.Concat(V.Local.sSO(0),"!*!","O","!*!","*!*ZDR*!*",V.Local.sSO)
+		F.Global.General.CallWrapperSync(200000,V.Local.sSO)
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.ElseIf(V.Args.column,=,"PO_NO") 
+	gui.frmDash.GsGrid.GetColumnIndexByName("GridView", "PO_NO",v.Local.iCol)
+	gui.frmDash.GsGrid.GetCellValue("GridView",v.Local.iCol,V.Args.RowIndex,V.Local.sSO)
+	f.Intrinsic.Control.If(V.Local.sSO.Trim,<>,"")
+		F.Intrinsic.String.Concat("O!*!",V.Local.sSO,"!*!",V.Local.sSO)
+		F.Global.General.CallWrapperSync(175200,V.Local.sSO)
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.ElseIf(V.Args.column,=,"Filname")
+	gui.frmDash.GsGrid.GetColumnIndexByName("GridView", "Filname",v.Local.iCol)
+	gui.frmDash.GsGrid.GetCellValue("GridView",v.Local.iCol,V.Args.RowIndex,V.Local.sfilename)
+	f.Intrinsic.String.Build("{0}\Processed\{1}",v.Screen.frmDash!txtFolder.Text,V.Local.sfilename,V.Local.sFilePath)
+
+'	F.Intrinsic.Task.LaunchSync(V.Local.sFilePath)
+	F.Intrinsic.Task.ShellExecSync(0,"Open",V.Local.sFilePath,"","",0)
+f.Intrinsic.Control.ElseIf(V.Args.column,=,"JOB") 
+	gui.frmDash.GsGrid.GetColumnIndexByName("GridView", "JOB",v.Local.iCol)
+	gui.frmDash.GsGrid.GetCellValue("GridView",v.Local.iCol,V.Args.RowIndex,V.Local.sSO)
+	f.Intrinsic.Control.If(V.Local.sSO.Trim,<>,"")
+		F.Intrinsic.String.IsInString(V.Local.sSO,"-",True,V.Local.bSuffix)
+		F.Intrinsic.Control.If(V.Local.bSuffix)
+			F.Intrinsic.String.Split(V.Local.sSO,"-",V.Local.sSO)
+			V.Local.sJob.Set(V.Local.sSO(0))
+			V.Local.sSuffix.Set(V.Local.sSO(1))
+		F.Intrinsic.Control.Else
+			V.Local.sJob.Set(V.Local.sSO(0))
+			V.Local.sSuffix.Set("")
+		F.Intrinsic.Control.EndIf
+
+		F.Intrinsic.String.Build("7!*!{0}!*!{1}!*!A",V.Local.sJob,V.Local.sSuffix,V.Local.sSO)
+		F.Global.General.CallWrapperAsync(450000,V.Local.sSO)
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.EndIf
+
+f.Intrinsic.Control.UnBlockEvents 
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	f.Intrinsic.Control.UnBlockEvents 
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GsGrid_RowCellClick.End
+
+Program.Sub.GsGrid_RowClick.Start
+F.Intrinsic.Control.SetErrorHandler("frmDash_UnLoad_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+'f.Intrinsic.UI.Msgbox("")
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("frmDash_UnLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GsGrid_RowClick.End
+
+Program.Sub.LockCreateWO.Start
+F.Intrinsic.Control.SetErrorHandler("LockCreateWO_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sRet.Declare
+v.Local.i.Declare(long)
+v.Local.sColumn.Declare
+
+'	'Lock row if WO is created
+
+
+	gui.frmDash.GsGrid.GetColumnIndexByName("Gridview","CreateWO",v.Local.sColumn)
+
+	f.Intrinsic.Control.If(v.Args.mode,=,"I")
+	'Import
+		Function.Data.DataTable.Select("DTLines","JOB='1'",v.Local.sRet)
+	f.Intrinsic.Control.Elseif(v.Args.mode,=,"N")
+	'New load
+		Function.Data.DataTable.Select("DTLines","JOB<>''",v.Local.sRet)
+	f.Intrinsic.Control.EndIf
+	
+	
+'	f.Intrinsic.Control.If(v.Local.sRet,<>,v.Ambient.Cancel)
+	f.Intrinsic.Control.If(v.Local.sRet,<>,"***NORETURN***")
+		f.Intrinsic.String.Split(v.Local.sRet,"*!*",v.Local.sRet)
+		f.Intrinsic.Control.For(v.Local.i,0,v.Local.sRet.UBound,1)
+			gui.frmDash.GsGrid.SetCellProperty("Gridview",v.Local.sColumn,v.Local.sRet(v.Local.i),"LOCKED",True)
+			f.Intrinsic.Control.If(v.Args.mode,=,"N")
+				Gui.frmDash.GsGrid.SetCellAppearance("GridView",v.Local.sColumn,v.Local.sRet(v.Local.i),"backcolor","Pink")
+			f.Intrinsic.Control.endif
+		f.Intrinsic.Control.Next(v.Local.i)
+		
+	f.Intrinsic.Control.endif
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("LockCreateWO_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.LockCreateWO.End
+
+Program.Sub.SaveCustTBL.Start
+F.Intrinsic.Control.SetErrorHandler("SaveCustTBL_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+Function.Intrinsic.UI.ChangeWaitStatus("Saving to Custom Table...")
+
+
+''Hist NULL is  new records - orderno null is no match
+''f.Data.DataView.Create("DTLines","DVSave",22,"Hist IS NULL and orderno IS NOT NULL","")
+f.Data.DataView.Create("DTLines","DVSave",22,"Hist <> '1' and orderno IS NOT NULL","")
+f.Data.DataView.ToDataTable("DTLines","DVSave","DTSave")
+F.Data.DataTable.SaveToDB("DTSave","conx","order_lines","Orderno*!*Line",256,"Orderno@!@Order_no*!*Line@!@Record_No*!*User_4@!@User_4")
+Function.Data.DataTable.Close("DTSave")
+
+f.Data.DataView.ToDataTable("DTLines","DVSave","DTSave")
+'F.Data.DataTable.SaveToDB("DTSave","conx","GCG_5103_SOPODash_1","Orderno*!*Line",256,"Orderno@!@SO*!*Line@!@Line*!*Extrusion_Part@!@Extrusion_Part*!*CustPO_Line@!@CustPO_Line*!*PO_NO@!@PO_NO*!*PO_Durdate@!@PO_Durdate*!*Rate@!@Rate*!*Filname@!@Filname*!*Packlist@!@Packlist")
+F.Data.DataTable.SaveToDB("DTSave","conx","GCG_5103_SOPODash_1","Orderno*!*Line*!*PO_NO",256,"Orderno@!@SO*!*Line@!@Line*!*Extrusion_Part@!@Extrusion_Part*!*CustPO_Line@!@CustPO_Line*!*PO_NO@!@PO_NO*!*PO_Durdate@!@PO_Durdate*!*Rate@!@Rate*!*Filname@!@Filname*!*Packlist@!@Packlist")
+Function.Data.DataView.Close("DTLines","DVSave")
+Function.Data.DataTable.Close("DTSave")
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("SaveCustTBL_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.SaveCustTBL.End
+
+Program.Sub.cmdSelectAll_Click.Start
+F.Intrinsic.Control.SetErrorHandler("Load_Grid_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+f.Data.DataView.Create("DTLines","DVWO",22,"JOB IS NULL or JOB = ''","")
+
+f.Intrinsic.Control.If(v.Screen.frmDash!cmdSelectAll.Caption,=,"DeSelect ALL")
+	gui.frmDash.cmdSelectAll.Caption("Select ALL")
+	f.Data.DataView.SetValue("DTLines","DVWO",-1,"CreateWO",False)
+f.Intrinsic.Control.Else
+	gui.frmDash.cmdSelectAll.Caption("DeSelect ALL")
+	f.Data.DataView.SetValue("DTLines","DVWO",-1,"CreateWO",True)
+f.Intrinsic.Control.endif
+
+
+f.Data.DataView.Close("DTLines","DVWO")
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Load_Grid_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.cmdSelectAll_Click.End
+
+Program.Sub.OutsideScript.Start
+F.Intrinsic.Control.SetErrorHandler("OutsideScript_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sdata.Declare 
+v.Local.lcnt.Declare(long)
+v.Local.sWo.Declare
+v.Local.sSuffix.Declare
+v.Local.sPgm.Declare
+v.Local.i.Declare 
+
+	'Pass WO to Outside script
+	F.Intrinsic.File.File2String(v.Args.FileOUT,V.Local.sdata)
+	Function.Data.DataTable.CreateFromString("DTOut", V.Local.sdata,"Part*!*REV*!*loc*!*Status*!*WO*!*Sufix","string*!*string*!*string*!*string*!*string*!*string","*!*",v.ambient.newline,True)
+
+	f.Intrinsic.Math.Sub(v.DataTable.DTOut.rowcount,1,v.Local.lcnt)
+
+	Function.Data.DataTable.DeleteRow("DTOut",v.Local.lcnt)
+	f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.DTOut.rowcount--,1)
+		f.Intrinsic.Control.If(v.DataTable.DTOut(v.Local.i).Status.fieldvaltrim,=,"Y")
+			f.Intrinsic.Control.If(v.DataTable.DTOut(v.Local.i).Sufix.fieldvaltrim,<>,"")
+				v.Local.sWo.Set(v.DataTable.DTOut(v.Local.i).WO.fieldvaltrim)
+				v.Local.sSuffix.Set(v.DataTable.DTOut(v.Local.i).Sufix.fieldvaltrim)
+				f.Intrinsic.String.Build("{0}{1}",v.Local.sWo,v.Local.sSuffix,v.Local.sWo)
+			f.Intrinsic.control.else
+				v.Local.sWo.Set(v.DataTable.DTOut(v.Local.i).WO.fieldvaltrim)
+				f.Intrinsic.String.Build("{0}",v.Local.sWo,v.Local.sWo)
+			f.Intrinsic.Control.EndIf 
+			f.Data.DataView.SetValue("DTLines","DVWO",v.Local.i,"Job",v.Local.sWo)
+		f.Intrinsic.Control.EndIf 
+	f.Intrinsic.Control.Next(v.Local.i)
+	
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("OutsideScript_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.OutsideScript.End
+
+Program.Sub.GetGLAcct.Start
+F.Intrinsic.Control.SetErrorHandler("GetGLAcct_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+v.Local.iReturnCode.Declare(Long)
+v.Local.sAccount.Declare(String)
+v.Local.sReturnProductLine.Declare(String)
+
+'read the GL Account for vendor based on hierarchy
+F.Global.Callwrapper.New("Test","Purchasing.GetAccountPurchaseOrder")
+F.Global.Callwrapper.SetProperty("Test","Part",v.Args.POPart)
+F.Global.Callwrapper.SetProperty("Test","Location","20")
+F.Global.Callwrapper.SetProperty("Test","PurchaseOrderNumber",v.Args.PO)
+F.Global.Callwrapper.SetProperty("Test","PurchaseOrderLine",v.Args.LN)
+F.Global.Callwrapper.SetProperty("Test","ProductLine",v.Args.PRL)
+F.Global.CallWrapper.Run("Test")
+
+F.Global.CallWrapper.GetProperty("Test","ReturnCode",V.Local.iReturnCode)
+f.Intrinsic.Control.If(V.Local.iReturnCode,=,0)
+	F.Global.CallWrapper.GetProperty("Test","Account",V.Local.sAccount)
+	f.Intrinsic.Variable.AddRV("GLACCT",V.Local.sAccount)
+f.Intrinsic.Control.Else
+	F.Intrinsic.Debug.SetLA(V.Local.iReturnCode)
+f.Intrinsic.Control.EndIf 
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GetGLAcct_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GetGLAcct.End
+
+Program.Sub.MenuExport.Start
+F.Intrinsic.Control.SetErrorHandler("MenuExport_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.bFileLocked.Declare 
+V.Local.sFileExport.Declare 
+V.Local.sMsg.Declare 
+V.Local.bExcel.Declare 
+
+'F.Automation.MSExcel.CheckPresence(V.Local.bExcel)
+'F.Intrinsic.Control.If(V.Local.bExcel)
+'	F.Intrinsic.String.Build("{0}\GAB_5103_Export.xlsx",V.Caller.LocalGssTempDir,V.Local.sFileExport)
+'	F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+'	F.Intrinsic.Control.If(V.Local.bFileLocked)
+'		F.Intrinsic.String.Build("File is already open. Please close and export again.{0}File: {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+'		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"File In Use")
+'	F.Intrinsic.Control.Else
+'		Gui.frmDash.GsGrid.Export(V.Local.sFileExport,"xlsx")
+'		F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+'	F.Intrinsic.Control.EndIf
+'F.Intrinsic.Control.Else
+'	F.Intrinsic.String.Build("{0}\GAB_5103_Export.csv",V.Caller.LocalGssTempDir,V.Local.sFileExport)
+'	F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+'	F.Intrinsic.Control.If(V.Local.bFileLocked)
+'		F.Intrinsic.String.Build("File is already open. Please close and export again.{0}File: {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+'		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"File In Use")
+'	F.Intrinsic.Control.Else
+'		Gui.frmDash.GsGrid.Export(V.Local.sFileExport,"csv")
+'	F.Intrinsic.Control.EndIf
+'	F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+'F.Intrinsic.Control.EndIf
+
+	f.Intrinsic.Control.CallSub(ExportFile,"sMode","UE")
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("MenuExport_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.MenuExport.End
+
+Program.Sub.CreateMenu.Start
+F.Intrinsic.Control.SetErrorHandler("CreateMenu_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+Gui.frmDash..ContextMenuCreate("SODASH")
+Gui.frmDash.GsGrid.ContextMenuAttach("SODASH")
+'Gui.frmDash..ContextMenuAddItem("SODASH","Refresh",0,"Refresh")
+Gui.frmDash..ContextMenuAddItem("SODASH","Export",0,"Export")
+'Gui.frmDash..ContextMenuSetItemEventHandler("SODASH","Refresh","MenuClickRefresh")
+'Gui.frmDash..ContextMenuSetItemEventHandler("SODASH","Export","MenuExport")
+	Gui.frmDash..ContextMenuSetItemEventHandler("SODASH","Export","MenuExport")
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("CreateMenu_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.CreateMenu.End
+
+Program.Sub.ExportFile.Start
+F.Intrinsic.Control.SetErrorHandler("CreateMenu_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+V.Local.bFileLocked.Declare 
+V.Local.sFileExport.Declare 
+V.Local.sMsg.Declare 
+V.Local.bExcel.Declare 
+
+V.Local.sdate.Declare
+V.Local.sdate1.Declare
+V.Local.sFolder.Declare
+
+
+f.Intrinsic.Control.If(v.Args.sMode,=,"UE")
+'Manual Export	
+	F.Intrinsic.String.Build("{0}",V.Caller.LocalGssTempDir,V.Local.sFileExport)
+f.Intrinsic.Control.ElseIf(v.Args.sMode,=,"AE")
+'Auto Export
+	f.Intrinsic.String.Build("{0}\Custom\",v.Caller.GlobalDir,V.Local.sFolder)
+	f.Intrinsic.File.DirExists(V.Local.sFolder,v.local.bExcel)
+	f.Intrinsic.Control.If(v.local.bExcel,=,False)
+	    f.Intrinsic.File.CreateDir(V.Local.sFolder)
+	    f.Intrinsic.String.Build("{0}\5103\",V.Local.sFolder,V.Local.sFolder)
+	    f.Intrinsic.File.CreateDir(V.Local.sFolder)
+	F.Intrinsic.Control.else
+		f.Intrinsic.String.Build("{0}\5103\",V.Local.sFolder,V.Local.sFolder)
+		f.Intrinsic.File.DirExists(V.Local.sFolder,v.local.bExcel)
+		f.Intrinsic.Control.If(v.local.bExcel,=,False)
+	    	f.Intrinsic.File.CreateDir(V.Local.sFolder)
+	    f.Intrinsic.Control.EndIf
+	f.Intrinsic.Control.EndIf
+	Function.Intrinsic.String.Format (V.Ambient.Date,"YYYYDDMM",V.Local.sdate)
+	Function.Intrinsic.String.Format (V.Ambient.Time,"HHNNSS",V.Local.sdate1)
+f.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.If(v.Args.sMode,=,"UE")
+	f.Intrinsic.String.Build("{0}GAB_5103_Export.xlsx",V.Local.sFileExport,V.Local.sFileExport)
+	F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+	F.Intrinsic.Control.If(V.Local.bFileLocked)
+		F.Intrinsic.String.Build("File is already open. Please close and export again.{0}File: {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"File In Use")
+	F.Intrinsic.Control.Else
+		Gui.frmDash.GsGrid.Export(V.Local.sFileExport,"xlsx")
+		F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+	F.Intrinsic.Control.EndIf
+f.Intrinsic.Control.ElseIf(v.Args.sMode,=,"AE")
+	f.Intrinsic.String.Build("GAB_5103_Export_{0}_{1}_{2}{3}.xlsx",v.Caller.Terminal,v.Caller.User,V.Local.sdate,V.Local.sdate1,V.Local.sFileExport)
+	f.Intrinsic.String.Build("{0}{1}",V.Local.sFolder,V.Local.sFileExport,v.Local.sFileExport)
+	Gui.frmDash.GsGrid.Export(V.Local.sFileExport,"xlsx")
+F.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("CreateMenu_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_5103_SOPODash.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)	
+F.Intrinsic.Control.EndIf
+Program.Sub.ExportFile.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_5103_SOPODash$}$MLA$}$5/16/2018 9:04:43 AM$}$False
+Program.Sub.Comments.End
